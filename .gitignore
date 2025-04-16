@@ -1,0 +1,28 @@
+# Rust/Cargo
+target/
+**/*.rs.bk
+
+# Cargo package files
+Cargo.lock
+Cargo.toml.orig
+
+# Backup & temp files
+*.swp
+*.swo
+*.tmp
+*.bak
+*.old
+*~
+
+# IDEs/editors
+.idea/
+.vscode/
+*.code-workspace
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# By default, don't ignore Cargo.lock for libraries, but ignore for binaries
+# Uncomment the next line if this is a binary project:
+# Cargo.lock
