@@ -26,3 +26,4 @@ Thumbs.db
 # By default, don't ignore Cargo.lock for libraries, but ignore for binaries
 # Uncomment the next line if this is a binary project:
 # Cargo.lock
+.ai

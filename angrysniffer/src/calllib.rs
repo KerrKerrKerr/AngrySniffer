@@ -1,12 +1,8 @@
 
-use std::os::unix::thread;
-use std::process::{Command, ExitCode, ExitStatus, Stdio};
+use std::process::{Command, ExitStatus, Stdio};
 use std::io::{BufRead, BufReader};
-use std::string;
-use std::thread::sleep;
 use std::time::{Duration, Instant};
 use std::fs::{self, File};
-use std::path::Path;
 enum state {
     Up,
     Down

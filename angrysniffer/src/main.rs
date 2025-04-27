@@ -1,16 +1,10 @@
 use calllib::{parseNetworkList, AP};
 use iced::widget::{button, column, text, container, scrollable, text_input, row}; // Added text_input, row
-use iced::{executor, Alignment, Application, Command, Element, Length, Settings, Size, Theme}; use std::fmt::format;
-use std::os::unix::process::ExitStatusExt;
+use iced::{executor, Alignment, Application, Command, Element, Length, Settings, Size, Theme};
 // Added Alignment
-use std::process::{exit, ExitStatus, Output};
+use std::process::{exit, Output};
 use std::sync::Arc;
-use iced::widget::scrollable::Scrollable; // Keep Scrollable import
-use nix::unistd::{geteuid, Uid};
-use iced::{window, clipboard, Subscription};
-use iced::widget::{pick_list, Column, Button, Text};
-use iced::{ window::Id as WindowId};
-use iced::Event::Window;
+use nix::unistd::geteuid;
 mod calllib;
 
 // Define the application state
@@ -26,12 +20,13 @@ struct ConsoleApp {
     new_monitor_input: String,
     down_interface_input: String,
     up_interface_input: String, // <-- Add this line
-    targetAP: AP,
+    target_ap: AP,
     target_station_mac: String, // Display only for now
     selected_essid_for_capture: String, // Display only for now
-    APs: Vec<AP>,
+    aps: Vec<AP>,
     path_to_csv_network: String,
     selected_n: usize,
+    station_mac: String,
 }
 
 // Define the messages the application can react to
@@ -44,6 +39,7 @@ enum Message {
     DownInterfaceInputChanged(String),
     UpInterfaceInputChanged(String), // <-- Add this line
     ActuallySelected(String),
+    StationMacInputChanged(String),
     // --- Button presses ---
     ActuallySelect,
     ChooseTargetAP,
@@ -56,7 +52,7 @@ enum Message {
     KillNetworkServices,
     LiftNetworkServices,
     StartCollectingNetworkList,
-    StopCollectingNetworkList,
+    //StopCollectingNetworkList,
     SelectAPFile, // <-- Add this line
     ChooseTargetStation, // Placeholder
     DeauthTarget, // Placeholder
@@ -64,6 +60,12 @@ enum Message {
     SetPathToApFile(String),
     // --- Existing ---
     CommandCompleted(Result<Output, Arc<std::io::Error>>), // Keep for potential future use or remove if not needed
+}
+
+fn neutrlize(strng: String) -> String {
+    strng.chars()
+        .filter(|c| c.is_ascii_alphanumeric() || *c == '_' || *c == '-' || *c == '.')
+        .collect()
 }
 
 // Asynchronously run a shell command (remains the same for now)
@@ -85,10 +87,11 @@ impl Application for ConsoleApp {
     fn new(_flags: ()) -> (ConsoleApp, Command<Message>) {
         (
             ConsoleApp {
+                station_mac: String::new(),
                 selected_str: String::new(),
                 selected_n: usize::max_value(),
-                APs: Vec::new(),
-                targetAP: AP::empty() ,
+                aps: Vec::new(),
+                target_ap: AP::empty() ,
                 path_to_network: String::from("/root/scan/"),
                 path_to_csv_network: String::from("not entered"),
                 console_output: String::from("Console ready."),
@@ -108,7 +111,7 @@ impl Application for ConsoleApp {
     }
 
     fn title(&self) -> String {
-        String::from("AngrySniffer Control Panel") // Updated title
+        String::from("AngrySniffer Control Panel v 0.0.0") // Updated title
     }
 
     // Handle messages and update the state
@@ -124,6 +127,10 @@ impl Application for ConsoleApp {
             // --- Handle input changes ---
             Message::InterfaceInputChanged(value) => {
                 self.interface_input = value;
+                Command::none()
+            }
+            Message::StationMacInputChanged(value) => {
+                self.station_mac = value;
                 Command::none()
             }
             Message::MonitorInputChanged(value) => {
@@ -226,10 +233,10 @@ impl Application for ConsoleApp {
                     Message::CommandCompleted
                 )
             }
-            Message::StopCollectingNetworkList => {
-                self.console_output.push_str("\n> Button Pressed: Stop Collecting Network List");
-                return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
-            }
+            // Message::StopCollectingNetworkList => {
+            //     self.console_output.push_str("\n> Button Pressed: Stop Collecting Network List");
+            //     return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
+            // }
             Message::SelectAPFile => {
                 self.console_output.push_str("\n> Opening file selection dialog for AP file...");
                 let args = vec![
@@ -271,37 +278,65 @@ impl Application for ConsoleApp {
                     self.console_output.push_str("\n> No AP file selected. Please select a file first.");
                     return Command::none();
                 }
-                self.APs = parseNetworkList(self.path_to_csv_network.clone());
-                let aps = self.APs.clone();
-                for i in 0..self.APs.len() {
+                self.aps = parseNetworkList(self.path_to_csv_network.clone());
+                //let aps = self.aps.clone();
+                for i in 0..self.aps.len() {
 
-                    self.console_output.push_str(&format!("\n> {}: {}", i,self.APs[i].to_string_less()));
+                    self.console_output.push_str(&format!("\n> {}: {}", i,self.aps[i].to_string_less()));
                 }
 
                 Command::none()
             }
             Message::DeauthTarget => {
-                self.console_output.push_str(&format!("\n> Button Pressed: Deauth Target [AP: {}, Station: {}]", self.targetAP.essid, self.target_station_mac));
-                // Placeholder: Implement deauth logic
-                return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
-            }
-            Message::StartCapturing => {
-                if self.targetAP.essid.is_empty() {
-                    self.console_output.push_str("\n> No target AP selected. Please select an AP first.");
+                if (self.target_ap.essid.is_empty() || self.station_mac.len() != 17){
+                    self.console_output.push_str("\n> Not enough args");
                     return Command::none();
                 }
-                self.console_output.push_str("\n> Opening terminal to select target AP...");
+
+
+                self.console_output.push_str(&format!("sudo aireplay-ng --deauth 10 -a {} -c {} {}", 
+                    self.target_ap.bssid.clone(), 
+                    self.station_mac.clone(),
+                    self.monitor_input.clone()));
+                
                 self.is_loading = true;
                 Command::perform(
                     run_command("x-terminal-emulator".to_string(), vec![
                         "-e".to_string(), 
                         "bash".to_string(),
                         "-c".to_string(),
-                        format!("sudo airodump-ng --bssid {} -c {} {} --output-format cap -w {}",
-                            self.targetAP.bssid.clone(),
-                            self.targetAP.channel.clone(),
+                        format!("sudo aireplay-ng --deauth 10 -a {} -c {} {}", 
+                            self.target_ap.bssid.clone(), 
+                            self.station_mac.clone(),
+                            self.monitor_input.clone())
+                    ]), 
+                    Message::CommandCompleted
+                )
+            }
+            Message::StartCapturing => {
+                if self.target_ap.essid.is_empty() {
+                    self.console_output.push_str("\n> No target AP selected. Please select an AP first.");
+                    return Command::none();
+                }
+
+                self.console_output.push_str(&format!("sudo airodump-ng --bssid {} -c {} {} --output-format cap -w {}",
+                    self.target_ap.bssid.clone(),
+                    self.target_ap.channel.clone(),
+                    self.monitor_input.clone(),
+                    self.path_to_network.clone() + &self.target_ap.essid.clone()));
+
+                //self.console_output.push_str("\n> Opening terminal to select target AP...");
+                self.is_loading = true;
+                Command::perform(
+                    run_command("x-terminal-emulator".to_string(), vec![
+                        "-e".to_string(), 
+                        "bash".to_string(),
+                        "-c".to_string(),
+                        format!("sudo airodump-ng --bssid {} -c {} {} --output-format cap -w \"{}\"",
+                            self.target_ap.bssid.clone(),
+                            self.target_ap.channel.clone(),
                             self.monitor_input.clone(),
-                            self.path_to_network.clone() + &self.targetAP.essid.clone())
+                            self.path_to_network.clone() + &neutrlize(self.target_ap.essid.clone()))
                     ]), 
                     Message::CommandCompleted
                 )
@@ -332,13 +367,13 @@ impl Application for ConsoleApp {
             }
             Message::ActuallySelect => {
                 self.console_output.push_str("\n> Selected");
-                if self.selected_n == usize::max_value() || self.selected_n > self.APs.len() as usize {
+                if self.selected_n == usize::max_value() || self.selected_n > self.aps.len() as usize {
                     self.console_output.push_str("\n> Invalid selection. Please select a valid AP.");
                     return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
 
                 }
-                self.targetAP = self.APs[self.selected_n.clone()].clone();
-                self.console_output.push_str(&format!("\n> Selected AP: {}", self.targetAP.essid));
+                self.target_ap = self.aps[self.selected_n.clone()].clone();
+                self.console_output.push_str(&format!("\n> Selected AP: {}", self.target_ap.essid));
                 return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
             }
         }
@@ -403,15 +438,15 @@ impl Application for ConsoleApp {
             button(text("Start Collecting Network List"))
                 .on_press(Message::StartCollectingNetworkList),
 
-            button(text("Stop Collecting Network List"))
-                .on_press(Message::StopCollectingNetworkList),
+            // button(text("Stop Collecting Network List"))
+            //     .on_press(Message::StopCollectingNetworkList),
 
             row![
                 button(text("Select AP File"))
                     .on_press(Message::SelectAPFile),
                 button(text("Print all APs from File"))
                     .on_press(Message::ChooseTargetAP),
-                text(&self.targetAP.essid) // Display only
+                text(&self.target_ap.essid) // Display only
             ].spacing(5).align_items(Alignment::Center),
 
             row![
@@ -423,12 +458,14 @@ impl Application for ConsoleApp {
             ].spacing(5).align_items(Alignment::Center),
 
             row![
-                button(text("Choose Target Station"))
-                    .on_press(Message::ChooseTargetStation), // Placeholder action
-                text(&self.target_station_mac)// Display only
+                // button(text("Choose Target Station"))
+                //     .on_press(Message::ChooseTargetStation), // Placeholder action
+                text_input("Station MAC", &self.station_mac)
+                    .on_input(Message::StationMacInputChanged)
+                    .padding(input_padding)
             ].spacing(5).align_items(Alignment::Center),
 
-             button(text(format!("Deauth Target [AP: {}, Sta: {}]", self.targetAP.essid, self.target_station_mac)))
+             button(text(format!("Deauth Target [AP: {}, Sta: {}]", self.target_ap.essid, self.target_station_mac)))
                 .on_press(Message::DeauthTarget), // Placeholder action
 
             button(text(format!("Start Capturing [Selected: {}]", self.selected_essid_for_capture)))
@@ -437,7 +474,7 @@ impl Application for ConsoleApp {
         ]
         .spacing(button_spacing)
         .padding(15)
-        .width(Length::FillPortion(4)); // Occupies 40% of width
+        .width(Length::FillPortion(5)); // Occupies 40% of width
 
         // --- Right Console View ---
         let console_view = scrollable(
@@ -445,7 +482,7 @@ impl Application for ConsoleApp {
             )
             .id(self.scrollable_id.clone())
             .height(Length::Fill)
-            .width(Length::FillPortion(6)); // Occupies 60% of width
+            .width(Length::FillPortion(5)); // Occupies 60% of width
 
         // --- Main Layout (Row) ---
         let content = row![
@@ -481,8 +518,8 @@ fn main() -> iced::Result {
 
     ConsoleApp::run(Settings {
         window: iced::window::Settings {
-            size: (Size::new(900.0, 800.0)), // Initial window size
-            min_size: Some(Size::new(900.0, 800.0)),
+            size: (Size::new(1000.0, 800.0)), // Initial window size
+            min_size: Some(Size::new(1000.0, 800.0)),
             ..iced::window::Settings::default()
         },
         ..Settings::default()
