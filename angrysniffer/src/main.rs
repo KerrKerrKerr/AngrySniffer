@@ -1,4 +1,4 @@
-use calllib::{parseNetworkList, AP};
+use calllib::{parse_network_list, AP};
 use iced::widget::{button, column, text, container, scrollable, text_input, row}; // Added text_input, row
 use iced::{executor, Alignment, Application, Command, Element, Length, Settings, Size, Theme};
 // Added Alignment
@@ -21,8 +21,6 @@ struct ConsoleApp {
     down_interface_input: String,
     up_interface_input: String, // <-- Add this line
     target_ap: AP,
-    target_station_mac: String, // Display only for now
-    selected_essid_for_capture: String, // Display only for now
     aps: Vec<AP>,
     path_to_csv_network: String,
     selected_n: usize,
@@ -52,9 +50,7 @@ enum Message {
     KillNetworkServices,
     LiftNetworkServices,
     StartCollectingNetworkList,
-    //StopCollectingNetworkList,
     SelectAPFile, // <-- Add this line
-    ChooseTargetStation, // Placeholder
     DeauthTarget, // Placeholder
     StartCapturing, // Placeholder
     SetPathToApFile(String),
@@ -103,8 +99,6 @@ impl Application for ConsoleApp {
                 new_monitor_input: String::new(),
                 down_interface_input: String::new(),
                 up_interface_input: String::new(), // <-- Add this line
-                target_station_mac: "<MAC>".to_string(), // Default display text
-                selected_essid_for_capture: "<ESSID>".to_string(), // Default display text
             },
             Command::none(),
         )
@@ -221,7 +215,7 @@ impl Application for ConsoleApp {
                 )
             }
             Message::StartCollectingNetworkList => {
-                self.console_output.push_str("\n> Opening terminal to select target AP...");
+                self.console_output.push_str(&format!("\n> sudo airodump-ng {} --output-format csv -w {}", self.monitor_input,self.path_to_network));
                 self.is_loading = true;
                 Command::perform(
                     run_command("x-terminal-emulator".to_string(), vec![
@@ -233,10 +227,6 @@ impl Application for ConsoleApp {
                     Message::CommandCompleted
                 )
             }
-            // Message::StopCollectingNetworkList => {
-            //     self.console_output.push_str("\n> Button Pressed: Stop Collecting Network List");
-            //     return scrollable::snap_to(self.scrollable_id.clone(), scrollable::RelativeOffset::END);
-            // }
             Message::SelectAPFile => {
                 self.console_output.push_str("\n> Opening file selection dialog for AP file...");
                 let args = vec![
@@ -252,7 +242,7 @@ impl Application for ConsoleApp {
                         match result {
                             Ok(output) => {
                                 let file_path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-                                if !file_path.is_empty() {
+                                if (!file_path.is_empty()) {
                                     Message::SetPathToApFile(file_path)
                                 } else {
                                     Message::CommandCompleted(Ok(
@@ -269,16 +259,13 @@ impl Application for ConsoleApp {
                     }
                 )
             }
-            Message::ChooseTargetStation => {
-                Command::none()
-            }
             Message::ChooseTargetAP => {
                 //pub fn new(bssid: String, first_seen: String, last_seen: String, channel: u8, speed: String, privacy: String, cipher: String, authentication: String, power: i32, beacons: u32, iv: u32, lan_ip: String, id_length: u32, essid: String, key: String)
                 if self.path_to_csv_network.is_empty() {
                     self.console_output.push_str("\n> No AP file selected. Please select a file first.");
                     return Command::none();
                 }
-                self.aps = parseNetworkList(self.path_to_csv_network.clone());
+                self.aps = parse_network_list(self.path_to_csv_network.clone());
                 //let aps = self.aps.clone();
                 for i in 0..self.aps.len() {
 
@@ -438,9 +425,6 @@ impl Application for ConsoleApp {
             button(text("Start Collecting Network List"))
                 .on_press(Message::StartCollectingNetworkList),
 
-            // button(text("Stop Collecting Network List"))
-            //     .on_press(Message::StopCollectingNetworkList),
-
             row![
                 button(text("Select AP File"))
                     .on_press(Message::SelectAPFile),
@@ -458,17 +442,15 @@ impl Application for ConsoleApp {
             ].spacing(5).align_items(Alignment::Center),
 
             row![
-                // button(text("Choose Target Station"))
-                //     .on_press(Message::ChooseTargetStation), // Placeholder action
                 text_input("Station MAC", &self.station_mac)
                     .on_input(Message::StationMacInputChanged)
                     .padding(input_padding)
             ].spacing(5).align_items(Alignment::Center),
 
-             button(text(format!("Deauth Target [AP: {}, Sta: {}]", self.target_ap.essid, self.target_station_mac)))
+             button(text(format!("Deauth Target [AP: {}, Sta: {}]", self.target_ap.essid, self.station_mac)))
                 .on_press(Message::DeauthTarget), // Placeholder action
 
-            button(text(format!("Start Capturing [Selected: {}]", self.selected_essid_for_capture)))
+            button(text(format!("Start Capturing [Selected: {}]", self.target_ap.essid)))
                 .on_press(Message::StartCapturing), // Placeholder action
 
         ]
