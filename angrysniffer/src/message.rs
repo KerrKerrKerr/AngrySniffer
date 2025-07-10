@@ -13,8 +13,6 @@ pub enum Message {
     ActuallySelect,
     ChooseTargetAP,
     ListInterfaces,
-    SetInterface,
-    SetMonitor,
     AddMonitor,
     DownInterface,
     UpInterface,

@@ -70,7 +70,7 @@ fn main() -> iced::Result {
         }
     }
 
-    let scan_dir_path_str = "/root/scan";
+    let scan_dir_path_str = "/root/.scans";
     let scan_dir_path = std::path::Path::new(scan_dir_path_str);
 
     if !scan_dir_path.exists() {
@@ -122,13 +122,11 @@ impl Application for ConsoleApp {
                 selected_n: usize::max_value(),
                 aps: Vec::new(),
                 target_ap: AP::empty(),
-                path_to_network: String::from("/root/scan/"),
-                path_to_csv_network: String::from("not entered"),
+                path_to_network: String::from("/root/.scans/"),
+                path_to_csv_network: String::from(""),
                 console_output: String::from("Console ready."),
                 scrollable_id: scrollable::Id::unique(),
                 is_loading: false,
-                interface_input: String::new(),
-                monitor_input: String::new(),
                 new_monitor_input: String::new(),
                 down_interface_input: String::new(),
                 up_interface_input: String::new(),

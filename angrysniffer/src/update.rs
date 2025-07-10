@@ -38,16 +38,12 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         }
         Message::InterfaceSelected(selected) => {
             self_.selected_interface = selected.clone();
-            if let Some(ref iface) = selected {
-                self_.interface_input = iface.clone();
-            }
+            // No more interface_input field
             Command::none()
         }
         Message::MonitorSelected(selected) => {
             self_.selected_monitor = selected.clone();
-            if let Some(ref monitor) = selected {
-                self_.monitor_input = monitor.clone();
-            }
+            // No more monitor_input field
             Command::none()
         }
         Message::DownInterfaceSelected(selected) => {
@@ -70,16 +66,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 Message::CommandCompleted,
             )
         }
-        Message::SetInterface => {
-            self_.console_output.push_str(&format!("\n> Set Interface [{}]", self_.interface_input));
-            scrollable::snap_to(self_.scrollable_id.clone(), scrollable::RelativeOffset::END)
-        }
-        Message::SetMonitor => {
-            self_.console_output.push_str(&format!("\n> Set Monitor [{}]", self_.monitor_input));
-            scrollable::snap_to(self_.scrollable_id.clone(), scrollable::RelativeOffset::END)
-        }
         Message::AddMonitor => {
-            if self_.interface_input.is_empty() || self_.monitor_input.is_empty() {
+            if self_.selected_interface.is_none() || self_.new_monitor_input.is_empty() {
                 self_.console_output.push_str("\n> Error: Interface and Monitor inputs cannot be empty.");
                 return Command::none();
             }
@@ -90,10 +78,10 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                     "iw".to_string(),
                     vec![
                         "dev".to_string(),
-                        self_.interface_input.clone(),
+                        self_.selected_interface.clone().unwrap(),
                         "interface".to_string(),
                         "add".to_string(),
-                        self_.monitor_input.clone(),
+                        self_.new_monitor_input.clone(),
                         "type".to_string(),
                         "monitor".to_string(),
                     ],
@@ -164,7 +152,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         Message::StartCollectingNetworkList => {
             self_.console_output.push_str(&format!(
                 "\n> sudo airodump-ng {} --output-format csv -w {}",
-                self_.monitor_input, self_.path_to_network
+                self_.selected_monitor.clone().unwrap_or_default(), self_.path_to_network
             ));
             self_.is_loading = true;
             Command::perform(
@@ -176,7 +164,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                         "-c".to_string(),
                         format!(
                             "sudo airodump-ng {} --output-format csv -w {}",
-                            self_.monitor_input, self_.path_to_network
+                            self_.selected_monitor.clone().unwrap_or_default(), self_.path_to_network
                         ),
                     ],
                 ),
@@ -189,7 +177,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "--file-selection".to_string(),
                 "--title=Select Target AP File".to_string(),
                 "--file-filter=*.csv *.txt".to_string(),
-                "--filename=/root/scans/".to_string(),
+                "--filename=/root/.scans/".to_string(),
             ];
             self_.is_loading = true;
             Command::perform(
@@ -207,6 +195,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 },
             )
         }
+
+        //this just prints all APs from the file
         Message::ChooseTargetAP => {
                 //pub fn new(bssid: String, first_seen: String, last_seen: String, channel: u8, speed: String, privacy: String, cipher: String, authentication: String, power: i32, beacons: u32, iv: u32, lan_ip: String, id_length: u32, essid: String, key: String)
                 if self_.path_to_csv_network.is_empty() {
@@ -235,7 +225,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "sudo aireplay-ng --deauth 10 -a {} -c {} {}",
                 self_.target_ap.bssid.clone(),
                 self_.station_mac.clone(),
-                self_.monitor_input.clone()
+                self_.selected_monitor.clone().unwrap_or_default()
             ));
             self_.is_loading = true;
             Command::perform(
@@ -249,7 +239,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                             "sudo aireplay-ng --deauth 10 -a {} -c {} {}",
                             self_.target_ap.bssid.clone(),
                             self_.station_mac.clone(),
-                            self_.monitor_input.clone()
+                            self_.selected_monitor.clone().unwrap_or_default()
                         ),
                     ],
                 ),
@@ -265,7 +255,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w {}",
                 self_.target_ap.bssid.clone(),
                 self_.target_ap.channel.clone(),
-                self_.monitor_input.clone(),
+                self_.selected_monitor.clone().unwrap_or_default(),
                 self_.path_to_network.clone() + &self_.target_ap.essid.clone()
             ));
             self_.is_loading = true;
@@ -280,7 +270,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                             "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w \"{}\"",
                             self_.target_ap.bssid.clone(),
                             self_.target_ap.channel.clone(),
-                            self_.monitor_input.clone(),
+                            self_.selected_monitor.clone().unwrap_or_default(),
                             self_.path_to_network.clone() + &neutrlize(self_.target_ap.essid.clone())
                         ),
                     ],

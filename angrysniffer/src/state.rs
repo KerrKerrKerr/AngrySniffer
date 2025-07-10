@@ -12,8 +12,6 @@ pub struct ConsoleApp {
     pub console_output: String,
     pub scrollable_id: scrollable::Id,
     pub is_loading: bool,
-    pub interface_input: String,
-    pub monitor_input: String,
     pub new_monitor_input: String,
     pub down_interface_input: String,
     pub up_interface_input: String,

@@ -12,7 +12,6 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
     let controls = column![
         button(text("List Interfaces")).on_press(Message::ListInterfaces),
         row![
-            button(text("Set Interface")).on_press(Message::SetInterface),
             pick_list(
                 app.interfaces.clone(),
                 app.selected_interface.clone(),
@@ -25,7 +24,6 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
         .spacing(5)
         .align_items(Alignment::Center),
         row![
-            button(text("Set Monitor")).on_press(Message::SetMonitor),
             pick_list(
                 app.monitor_interfaces.clone(),
                 app.selected_monitor.clone(),

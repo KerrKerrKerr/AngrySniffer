@@ -19,12 +19,9 @@ If you wish to try it and meet the prerequisites:
     ```
 2.  Build:
     ```bash
-    cargo build --release
+    cargo run--release
     ```
-3.  Run:
-    ```bash
-    sudo ./target/release/angrysniffer
-    ```
+
 
 **Note:** Root privileges (`sudo`) are required because the application modifies the network stack (e.g., creating monitor mode interfaces).
 
@@ -34,10 +31,7 @@ AngrySniffer aims to provide a graphical user interface as an abstraction layer 
 
 ## Roadmap
 
-### v0.0: Current Stage
-*   Initial version with basic functionalities.
-
-### v0.1: Upcoming
+### v0.1: Current Stage
 *   Refactor parts of the codebase for future development.
 *   UI tweaks and improvements.
 *   Implement failsafes and better error handling.
