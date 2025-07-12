@@ -9,7 +9,50 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
     let button_spacing = 10;
     let input_padding = 5;
 
+    if app.show_settings {
+        let settings_controls = column![
+            text("Settings Window"),
+            row![
+                text("Default storage location:"),
+                text_input("Path", &app.storage_location_input)
+                    .on_input(Message::StorageLocationInputChanged)
+                    .padding(5),
+                button(text("Browse")).on_press(Message::OpenStorageLocationDialog),
+            ]
+            .spacing(10),
+            row![
+                text("Remote server credentials:"),
+                text_input("Path", &app.remote_server_credentials_input)
+                    .on_input(Message::RemoteServerCredentialsInputChanged)
+                    .padding(5),
+                button(text("Browse")).on_press(Message::OpenRemoteServerCredentialsDialog),
+            ]
+            .spacing(10),
+            row![
+                text("Local password list:"),
+                text_input("Path", &app.local_password_list_input)
+                    .on_input(Message::LocalPasswordListInputChanged)
+                    .padding(5),
+                button(text("Browse")).on_press(Message::OpenLocalPasswordListDialog),
+                ]
+                .spacing(10),
+            button(text("Save")).on_press(Message::SaveSettings),
+            button(text("Close Settings")).on_press(Message::CloseSettings),
+        ]
+        .spacing(10)
+        .padding(20)
+        .width(Length::FillPortion(5));
+
+        return container(settings_controls)
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .center_x()
+            .center_y()
+            .into();
+    }
+
     let controls = column![
+        button(text("Settings")).on_press(Message::OpenSettings),
         button(text("List Interfaces")).on_press(Message::ListInterfaces),
         row![
             pick_list(
@@ -105,6 +148,10 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
             app.target_ap.essid
         )))
         .on_press(Message::StartCapturing),
+        button(text("Crack Captured Handshake"))
+            .on_press(Message::CrackCapturedHandshake),
+        button(text("Crack capture file locally"))
+            .on_press(Message::CrackCaptureFileLocally),
     ]
     .spacing(button_spacing)
     .padding(15)

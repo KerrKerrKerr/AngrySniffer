@@ -27,8 +27,20 @@ pub enum Message {
     MonitorSelected(Option<String>),
     DownInterfaceSelected(Option<String>),
     UpInterfaceSelected(Option<String>),
-    // --- Window events ---
-
-    // --- Existing ---
     CommandCompleted(Result<Output, Arc<std::io::Error>>),
+    CrackCapturedHandshake,
+    OpenSettings,
+    CloseSettings,
+    OpenStorageLocationDialog,
+    SetStorageLocation(String),
+    StorageLocationInputChanged(String),
+    OpenRemoteServerCredentialsDialog,
+    SetRemoteServerCredentials(String),
+    RemoteServerCredentialsInputChanged(String),
+    OpenLocalPasswordListDialog,
+    SetLocalPasswordList(String),
+    LocalPasswordListInputChanged(String),
+    SaveSettings,
+    CrackCaptureFileLocally,
+    SetCapFilePathAndCrack(String),
 }

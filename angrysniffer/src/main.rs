@@ -18,6 +18,12 @@ use std::process::exit;
 use iced::widget::scrollable;
 use calllib::AP;
 
+#[derive(Default)]
+pub struct AppFlags {
+    pub storage_location: String,
+    pub remote_server_credentials: String,
+    pub local_password_list: String,
+}
 
 // Main function
 fn main() -> iced::Result {
@@ -69,6 +75,64 @@ fn main() -> iced::Result {
             }
         }
     }
+    let mut storage_location = String::new();
+    let mut remote_server_credentials = String::new();
+    let mut local_password_list = String::new();
+    // Load or create configuration file
+    let config_path = "./angrysniffer.toml";
+    if !std::path::Path::new(config_path).exists() {
+        eprintln!("Configuration file {} does not exist. Creating default configuration...", config_path);
+        let default_config = r#"# AngrySniffer Configuration
+    [settings]
+    storage_location = "/root/.scans/"
+    remote_server_credentials = ""
+    local_password_list = ""
+    "#;
+        match std::fs::write(config_path, default_config) {
+            Ok(_) => eprintln!("Default configuration file created at {}", config_path),
+            Err(e) => {
+                eprintln!("Failed to create configuration file: {}", e);
+                exit(1);
+            }
+        }
+    } else {
+        eprintln!("Configuration file {} found.", config_path);
+        // Parse the existing configuration file
+        match std::fs::read_to_string(config_path) {
+            Ok(config_content) => {
+                match toml::from_str::<toml::Value>(&config_content) {
+                    Ok(config) => {
+                        if let Some(settings) = config.get("settings") {
+                            if let Some(storage) = settings.get("storage_location") {
+                                if let Some(storage_str) = storage.as_str() {
+                                    storage_location = storage_str.to_string();
+                                }
+                            }
+                            if let Some(credentials) = settings.get("remote_server_credentials") {
+                                if let Some(credentials_str) = credentials.as_str() {
+                                    remote_server_credentials = credentials_str.to_string();
+                                }
+                            }
+                            if let Some(password_list) = settings.get("local_password_list") {
+                                if let Some(password_list_str) = password_list.as_str() {
+                                    local_password_list = password_list_str.to_string();
+                                }
+                            }
+                        }
+                        eprintln!("Configuration loaded successfully.");
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to parse configuration file: {}", e);
+                        exit(1);
+                    }
+                }
+            }
+            Err(e) => {
+                eprintln!("Failed to read configuration file: {}", e);
+                exit(1);
+            }
+        }
+    }
 
     let scan_dir_path_str = "/root/.scans";
     let scan_dir_path = std::path::Path::new(scan_dir_path_str);
@@ -94,12 +158,19 @@ fn main() -> iced::Result {
         eprintln!("Directory {} already exists.", scan_dir_path_str);
     }
 
+    let settings_at_start = AppFlags {
+        storage_location: storage_location.clone(),
+        remote_server_credentials: remote_server_credentials.clone(),
+        local_password_list: local_password_list.clone(),
+    };
+
     ConsoleApp::run(Settings {
         window: iced::window::Settings {
             size: (Size::new(1000.0, 800.0)),
             min_size: Some(Size::new(1000.0, 800.0)),
             ..iced::window::Settings::default()
         },
+        flags: settings_at_start,
         ..Settings::default()
     })
 }
@@ -108,9 +179,9 @@ impl Application for ConsoleApp {
     type Executor = iced::executor::Default;
     type Message = Message;
     type Theme = iced::Theme;
-    type Flags = ();
+    type Flags = AppFlags;
 
-    fn new(_flags: ()) -> (ConsoleApp, Command<Message>) {
+    fn new(_flags: AppFlags) -> (ConsoleApp, Command<Message>) {
         (
             ConsoleApp {
                 interfaces: commands::get_interface_names(),
@@ -131,14 +202,22 @@ impl Application for ConsoleApp {
                 down_interface_input: String::new(),
                 up_interface_input: String::new(),
                 network_services_killed: false,
-                show_exit_dialog: false,
+                show_settings: false,
+                settings_text: String::new(),
+                storage_location_input: _flags.storage_location.clone(),
+                remote_server_credentials_input: _flags.remote_server_credentials.clone(),
+                local_password_list_input: _flags.local_password_list.clone(),
+                storage_location: _flags.storage_location.clone(),
+                remote_server_credentials: _flags.remote_server_credentials.clone(),
+                local_password_list: _flags.local_password_list.clone(),
+                cap_file_path: String::new(),
             },
             Command::none(),
         )
     }
 
     fn title(&self) -> String {
-        String::from("AngrySniffer Control Panel v 0.0.1")
+        String::from("AngrySniffer")
     }
 
     fn update(&mut self, message: Message) -> Command<Message> {

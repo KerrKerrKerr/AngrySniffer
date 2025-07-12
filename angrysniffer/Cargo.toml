@@ -7,3 +7,4 @@ edition = "2024"
 iced = { version = "0.12", features = ["tokio", "debug"] } # Removed text_editor
 tokio = { version = "1", features = ["rt-multi-thread", "macros", "process"] }
 nix = { version = "0.28", features = ["process", "user"] }
+toml = { version="*" }
