@@ -10,7 +10,10 @@ mod update;
 mod ui;
 
 // Imports
-use iced::{Application, Command, Settings, Size, Element};
+use iced::{Application, Command, Font, Settings, Size, Element};
+
+/// JetBrains Mono font referenced by name (must be installed on the system)
+const JETBRAINS_MONO: Font = Font::with_name("JetBrains Mono");
 use nix::unistd::geteuid;
 use state::ConsoleApp;
 use message::Message;
@@ -165,6 +168,7 @@ fn main() -> iced::Result {
     };
 
     ConsoleApp::run(Settings {
+        default_font: JETBRAINS_MONO,
         window: iced::window::Settings {
             size: (Size::new(1000.0, 800.0)),
             min_size: Some(Size::new(1000.0, 800.0)),
