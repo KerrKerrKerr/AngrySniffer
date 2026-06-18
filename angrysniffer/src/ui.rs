@@ -1,11 +1,11 @@
 use crate::message::Message;
 use crate::state::ConsoleApp;
 use iced::{
-    widget::{button, column, container, pick_list, row, scrollable, text, text_input},
-    Alignment, Element, Length, Theme,
+    widget::{button, column, container, pick_list, row, text, text_input, scrollable::Scrollable},
+    Alignment, Element, Length,
 };
 
-pub fn view(app: &ConsoleApp) -> Element<Message> {
+pub fn view(app: &ConsoleApp) -> Element<'_, Message> {
     let button_spacing = 10;
     let input_padding = 5;
 
@@ -46,8 +46,8 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
         return container(settings_controls)
             .width(Length::Fill)
             .height(Length::Fill)
-            .center_x()
-            .center_y()
+            .center_x(Length::Fill)
+            .center_y(Length::Fill)
             .into();
     }
 
@@ -61,11 +61,10 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 |s: String| Message::InterfaceSelected(Some(s)),
             )
             .placeholder("Select interface")
-            .on_open(Message::RefreshInterfaces)
             .width(Length::FillPortion(2))
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             pick_list(
                 app.monitor_interfaces.clone(),
@@ -73,11 +72,10 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 |s: String| Message::MonitorSelected(Some(s)),
             )
             .placeholder("Select monitor interface")
-            .on_open(Message::RefreshMonitorInterfaces)
             .width(Length::FillPortion(2))
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             button(text("Add Monitor")).on_press(Message::AddMonitor),
             text_input("monitor name", &app.new_monitor_input)
@@ -85,7 +83,7 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 .padding(input_padding)
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             button(text("Down")).on_press(Message::DownInterface),
             pick_list(
@@ -94,11 +92,10 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 |s: String| Message::DownInterfaceSelected(Some(s)),
             )
             .placeholder("Select interface to down")
-            .on_open(Message::RefreshInterfaces)
             .width(Length::FillPortion(2))
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             button(text("Up")).on_press(Message::UpInterface),
             pick_list(
@@ -107,11 +104,10 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 |s: String| Message::UpInterfaceSelected(Some(s)),
             )
             .placeholder("Select interface to up")
-            .on_open(Message::RefreshInterfaces)
             .width(Length::FillPortion(2))
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         button(text("Kill Network Services")).on_press(Message::KillNetworkServices),
         button(text("Lift Network Services")).on_press(Message::LiftNetworkServices),
         button(text("Start Collecting Network List"))
@@ -122,7 +118,7 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
             text(&app.target_ap.essid)
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             button(text("Select ip from file")).on_press(Message::ActuallySelect),
             text_input("number of AP", &app.selected_str)
@@ -130,14 +126,14 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
                 .padding(input_padding)
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         row![
             text_input("Station MAC", &app.station_mac)
                 .on_input(Message::StationMacInputChanged)
                 .padding(input_padding)
         ]
         .spacing(5)
-        .align_items(Alignment::Center),
+        .align_y(Alignment::Center),
         button(text(format!(
             "Deauth Target [AP: {}, Sta: {}]",
             app.target_ap.essid, app.station_mac
@@ -157,21 +153,21 @@ pub fn view(app: &ConsoleApp) -> Element<Message> {
     .padding(15)
     .width(Length::FillPortion(5));
 
-    let console_view = scrollable(text(&app.console_output))
+    let console_view = Scrollable::new(text(&app.console_output))
         .id(app.scrollable_id.clone())
         .height(Length::Fill)
         .width(Length::FillPortion(5));
 
     let content = row![controls, console_view]
         .spacing(10)
-        .align_items(Alignment::Start)
+        .align_y(Alignment::Start)
         .width(Length::Fill)
         .height(Length::Fill);
 
     container(content)
         .width(Length::Fill)
         .height(Length::Fill)
-        .center_x()
-        .center_y()
+        .center_x(Length::Fill)
+        .center_y(Length::Fill)
         .into()
 }

@@ -10,7 +10,8 @@ mod update;
 mod ui;
 
 // Imports
-use iced::{Application, Command, Font, Settings, Size, Element};
+use iced::{Font, Size, Task, Element};
+use iced::widget::Id;
 
 /// JetBrains Mono font referenced by name (must be installed on the system)
 const JETBRAINS_MONO: Font = Font::with_name("JetBrains Mono");
@@ -18,10 +19,9 @@ use nix::unistd::geteuid;
 use state::ConsoleApp;
 use message::Message;
 use std::process::exit;
-use iced::widget::scrollable;
 use calllib::AP;
 
-#[derive(Default)]
+#[derive(Clone)]
 pub struct AppFlags {
     pub storage_location: String,
     pub remote_server_credentials: String,
@@ -167,68 +167,57 @@ fn main() -> iced::Result {
         local_password_list: local_password_list.clone(),
     };
 
-    ConsoleApp::run(Settings {
-        default_font: JETBRAINS_MONO,
-        window: iced::window::Settings {
-            size: (Size::new(1000.0, 800.0)),
-            min_size: Some(Size::new(1000.0, 800.0)),
-            ..iced::window::Settings::default()
+    iced::application(
+        move || {
+            (
+                ConsoleApp {
+                    interfaces: commands::get_interface_names(),
+                    monitor_interfaces: commands::get_monitor_interfaces(),
+                    selected_interface: None,
+                    selected_monitor: None,
+                    station_mac: String::new(),
+                    selected_str: String::new(),
+                    selected_n: usize::max_value(),
+                    aps: Vec::new(),
+                    target_ap: AP::empty(),
+                    path_to_network: String::from("/root/.scans/"),
+                    path_to_csv_network: String::from(""),
+                    console_output: String::from("Console ready."),
+                    scrollable_id: Id::unique(),
+                    is_loading: false,
+                    new_monitor_input: String::new(),
+                    down_interface_input: String::new(),
+                    up_interface_input: String::new(),
+                    network_services_killed: false,
+                    show_settings: false,
+                    settings_text: String::new(),
+                    storage_location_input: settings_at_start.storage_location.clone(),
+                    remote_server_credentials_input: settings_at_start.remote_server_credentials.clone(),
+                    local_password_list_input: settings_at_start.local_password_list.clone(),
+                    storage_location: settings_at_start.storage_location.clone(),
+                    remote_server_credentials: settings_at_start.remote_server_credentials.clone(),
+                    local_password_list: settings_at_start.local_password_list.clone(),
+                    cap_file_path: String::new(),
+                },
+                Task::none(),
+            )
         },
-        flags: settings_at_start,
-        ..Settings::default()
+        update,
+        view,
+    )
+    .default_font(JETBRAINS_MONO)
+    .window(iced::window::Settings {
+        size: Size::new(1000.0, 800.0),
+        min_size: Some(Size::new(1000.0, 800.0)),
+        ..iced::window::Settings::default()
     })
+    .run()
 }
 
-impl Application for ConsoleApp {
-    type Executor = iced::executor::Default;
-    type Message = Message;
-    type Theme = iced::Theme;
-    type Flags = AppFlags;
+fn update(state: &mut ConsoleApp, message: Message) -> Task<Message> {
+    update::update(state, message)
+}
 
-    fn new(_flags: AppFlags) -> (ConsoleApp, Command<Message>) {
-        (
-            ConsoleApp {
-                interfaces: commands::get_interface_names(),
-                monitor_interfaces: commands::get_monitor_interfaces(),
-                selected_interface: None,
-                selected_monitor: None,
-                station_mac: String::new(),
-                selected_str: String::new(),
-                selected_n: usize::max_value(),
-                aps: Vec::new(),
-                target_ap: AP::empty(),
-                path_to_network: String::from("/root/.scans/"),
-                path_to_csv_network: String::from(""),
-                console_output: String::from("Console ready."),
-                scrollable_id: scrollable::Id::unique(),
-                is_loading: false,
-                new_monitor_input: String::new(),
-                down_interface_input: String::new(),
-                up_interface_input: String::new(),
-                network_services_killed: false,
-                show_settings: false,
-                settings_text: String::new(),
-                storage_location_input: _flags.storage_location.clone(),
-                remote_server_credentials_input: _flags.remote_server_credentials.clone(),
-                local_password_list_input: _flags.local_password_list.clone(),
-                storage_location: _flags.storage_location.clone(),
-                remote_server_credentials: _flags.remote_server_credentials.clone(),
-                local_password_list: _flags.local_password_list.clone(),
-                cap_file_path: String::new(),
-            },
-            Command::none(),
-        )
-    }
-
-    fn title(&self) -> String {
-        String::from("AngrySniffer")
-    }
-
-    fn update(&mut self, message: Message) -> Command<Message> {
-        update::update(self, message)
-    }
-
-    fn view(&self) -> Element<Message> {
-        ui::view(self)
-    }
+fn view(state: &ConsoleApp) -> Element<'_, Message> {
+    ui::view(state)
 }

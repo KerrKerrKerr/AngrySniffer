@@ -1,5 +1,5 @@
 use super::calllib::AP;
-use iced::widget::scrollable;
+use iced::widget::Id;
 
 // Define the application state
 pub struct ConsoleApp {
@@ -10,7 +10,7 @@ pub struct ConsoleApp {
     pub selected_str: String,
     pub path_to_network: String,
     pub console_output: String,
-    pub scrollable_id: scrollable::Id,
+    pub scrollable_id: Id,
     pub is_loading: bool,
     pub new_monitor_input: String,
     pub down_interface_input: String,

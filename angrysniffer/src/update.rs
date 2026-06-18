@@ -3,64 +3,64 @@ use crate::commands::{get_interface_names, get_monitor_interfaces, run_command};
 use crate::message::Message;
 use crate::state::ConsoleApp;
 use crate::update::commands::neutrlize;
-use iced::Command;
-use iced::widget::scrollable;
+use iced::Task;
+use iced::widget::operation;
 mod commands;
 
-pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
+pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
     match message {
         Message::ActuallySelected(value) => {
             self_.selected_str = value.clone();
             self_.selected_n = value.parse().unwrap_or(usize::max_value());
-            Command::none()
+            Task::none()
         }
         // --- Handle input changes ---
         Message::StationMacInputChanged(value) => {
             self_.station_mac = value;
-            Command::none()
+            Task::none()
         }
 
         Message::NewMonitorInputChanged(value) => {
             self_.new_monitor_input = value;
-            Command::none()
+            Task::none()
         }
 
         Message::RefreshInterfaces => {
             self_.interfaces = get_interface_names();
-            Command::none()
+            Task::none()
         }
         Message::RefreshMonitorInterfaces => {
             self_.monitor_interfaces = get_monitor_interfaces();
-            Command::none()
+            Task::none()
         }
         Message::InterfaceSelected(selected) => {
             self_.selected_interface = selected.clone();
             // No more interface_input field
-            Command::none()
+            Task::none()
         }
         Message::MonitorSelected(selected) => {
             self_.selected_monitor = selected.clone();
             // No more monitor_input field
-            Command::none()
+            Task::none()
         }
         Message::DownInterfaceSelected(selected) => {
             if let Some(ref interface) = selected {
                 self_.down_interface_input = interface.clone();
             }
-            Command::none()
+            Task::none()
         }
         Message::UpInterfaceSelected(selected) => {
             if let Some(ref interface) = selected {
                 self_.up_interface_input = interface.clone();
             }
-            Command::none()
+            Task::none()
         }
         Message::ListInterfaces => {
             self_
                 .console_output
                 .push_str("\n> Requesting interface list...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("ip".to_string(), vec!["a".to_string()]),
                 Message::CommandCompleted,
             )
@@ -70,11 +70,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_
                     .console_output
                     .push_str("\n> Error: Interface and Monitor inputs cannot be empty.");
-                return Command::none();
+                return Task::none();
             }
             self_.console_output.push_str("\n> Adding monitor...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "iw".to_string(),
                     vec![
@@ -93,7 +93,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         Message::DownInterface => {
             self_.console_output.push_str("\n> Downing interface...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "ip".to_string(),
                     vec![
@@ -109,7 +109,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         Message::UpInterface => {
             self_.console_output.push_str("\n> Upping interface...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "ip".to_string(),
                     vec![
@@ -127,7 +127,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 .console_output
                 .push_str("\n> KIlling netwok services...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "airmon-ng".to_string(),
                     vec!["check".to_string(), "kill".to_string()],
@@ -141,7 +141,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 .console_output
                 .push_str("\n> Restarting network services...");
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "systemctl".to_string(),
                     vec![
@@ -160,7 +160,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_.path_to_network
             ));
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "x-terminal-emulator".to_string(),
                     vec![
@@ -188,7 +188,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "--filename=/root/.scans/".to_string(),
             ];
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("zenity".to_string(), args),
                 |result| match result {
                     Ok(output) => {
@@ -211,7 +211,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_
                     .console_output
                     .push_str("\n> No AP file selected. Please select a file first.");
-                return Command::none();
+                return Task::none();
             }
             self_.aps = parse_network_list(self_.path_to_csv_network.clone());
             //let aps = self.aps.clone();
@@ -223,12 +223,12 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 ));
             }
 
-            Command::none()
+            Task::none()
         }
         Message::DeauthTarget => {
             if self_.target_ap.essid.is_empty() || self_.station_mac.len() != 17 {
                 self_.console_output.push_str("\n> Not enough args");
-                return Command::none();
+                return Task::none();
             }
             self_.console_output.push_str(&format!(
                 "sudo aireplay-ng --deauth 10 -a {} -c {} {}",
@@ -237,7 +237,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_.selected_monitor.clone().unwrap_or_default()
             ));
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "x-terminal-emulator".to_string(),
                     vec![
@@ -260,7 +260,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_
                     .console_output
                     .push_str("\n> No target AP selected. Please select an AP first.");
-                return Command::none();
+                return Task::none();
             }
             self_.console_output.push_str(&format!(
                 "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w {}",
@@ -270,7 +270,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_.path_to_network.clone() + &self_.target_ap.essid.clone()
             ));
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "x-terminal-emulator".to_string(),
                     vec![
@@ -307,15 +307,15 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
             self_.console_output.push_str(&output_text);
             self_.console_output.push('\n');
             self_.is_loading = false;
-            scrollable::snap_to(self_.scrollable_id.clone(), scrollable::RelativeOffset::END)
+            operation::snap_to(self_.scrollable_id.clone(), operation::RelativeOffset::END)
         }
         Message::SetPathToApFile(path) => {
             self_.path_to_csv_network = path.clone();
             self_.console_output.push_str("\n> Path to AP file set to ");
             self_.console_output.push_str(&path);
-            return scrollable::snap_to(
+            return operation::snap_to(
                 self_.scrollable_id.clone(),
-                scrollable::RelativeOffset::END,
+                operation::RelativeOffset::END,
             );
         }
         Message::ActuallySelect => {
@@ -325,27 +325,27 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 self_
                     .console_output
                     .push_str("\n> Invalid selection. Please select a valid AP.");
-                return scrollable::snap_to(
+                return operation::snap_to(
                     self_.scrollable_id.clone(),
-                    scrollable::RelativeOffset::END,
+                    operation::RelativeOffset::END,
                 );
             }
             self_.target_ap = self_.aps[self_.selected_n.clone()].clone();
             self_
                 .console_output
                 .push_str(&format!("\n> Selected AP: {}", self_.target_ap.essid));
-            return scrollable::snap_to(
+            return operation::snap_to(
                 self_.scrollable_id.clone(),
-                scrollable::RelativeOffset::END,
+                operation::RelativeOffset::END,
             );
         }
         Message::OpenSettings => {
             self_.show_settings = true;
-            Command::none()
+            Task::none()
         }
         Message::CloseSettings => {
             self_.show_settings = false;
-            Command::none()
+            Task::none()
         }
         Message::OpenStorageLocationDialog => {
             let args = vec![
@@ -354,7 +354,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "--filename=/root/".to_string(),
             ];
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("zenity".to_string(), args),
                 |result| match result {
                     Ok(output) => {
@@ -371,11 +371,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         }
         Message::SetStorageLocation(path) => {
             self_.storage_location_input = path;
-            Command::none()
+            Task::none()
         }
         Message::StorageLocationInputChanged(value) => {
             self_.storage_location_input = value;
-            Command::none()
+            Task::none()
         }
         Message::OpenRemoteServerCredentialsDialog => {
             let args = vec![
@@ -384,7 +384,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "--filename=/root/".to_string(),
             ];
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("zenity".to_string(), args),
                 |result| match result {
                     Ok(output) => {
@@ -401,11 +401,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         }
         Message::SetRemoteServerCredentials(path) => {
             self_.remote_server_credentials_input = path;
-            Command::none()
+            Task::none()
         }
         Message::RemoteServerCredentialsInputChanged(value) => {
             self_.remote_server_credentials_input = value;
-            Command::none()
+            Task::none()
         }
         Message::OpenLocalPasswordListDialog => {
             let args = vec![
@@ -414,7 +414,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 "--filename=/root/".to_string(),
             ];
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("zenity".to_string(), args),
                 |result| match result {
                     Ok(output) => {
@@ -431,11 +431,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
         }
         Message::SetLocalPasswordList(path) => {
             self_.local_password_list_input = path;
-            Command::none()
+            Task::none()
         }
         Message::LocalPasswordListInputChanged(value) => {
             self_.local_password_list_input = value;
-            Command::none()
+            Task::none()
         }
         Message::SaveSettings => {
             let config_path = "./angrysniffer.toml";
@@ -451,7 +451,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                     .console_output
                     .push_str(&format!("\n> Failed to save settings: {}", e)),
             }
-            Command::none()
+            Task::none()
         }
         Message::CrackCaptureFileLocally => {
             let args = vec![
@@ -460,7 +460,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 format!("--filename={}", self_.storage_location),
             ];
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command("zenity".to_string(), args),
                 |result| match result {
                     Ok(output) => {
@@ -480,7 +480,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
             self_.console_output.push_str("\n> Cracking capture file: ");
             self_.console_output.push_str(&path);
             self_.is_loading = true;
-            Command::perform(
+            Task::perform(
                 run_command(
                     "x-terminal-emulator".to_string(),
                     vec![
@@ -497,6 +497,6 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Command<Message> {
                 Message::CommandCompleted,
             )
         }
-        _ => Command::none(),
+        _ => Task::none(),
     }
 }
