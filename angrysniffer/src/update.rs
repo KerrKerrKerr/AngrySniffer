@@ -311,8 +311,21 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
         }
         Message::SetPathToApFile(path) => {
             self_.path_to_csv_network = path.clone();
-            self_.console_output.push_str("\n> Path to AP file set to ");
-            self_.console_output.push_str(&path);
+            self_.aps = parse_network_list(self_.path_to_csv_network.clone());
+            self_.console_output.push_str(&format!("\n> Loaded {} APs from file.", self_.aps.len()));
+            for i in 0..self_.aps.len() {
+                self_.console_output.push_str(&format!(
+                    "\n> {}: {}",
+                    i,
+                    self_.aps[i].to_string_less()
+                ));
+            }
+            if !self_.aps.is_empty() {
+                self_.selected_n = 0;
+                self_.target_ap = self_.aps[0].clone();
+                self_.selected_str = "0".to_string();
+                self_.console_output.push_str(&format!("\n> Auto-selected AP #0: {}", self_.target_ap.essid));
+            }
             return operation::snap_to(
                 self_.scrollable_id.clone(),
                 operation::RelativeOffset::END,
@@ -497,6 +510,38 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                 Message::CommandCompleted,
             )
         }
-        _ => Task::none(),
+        Message::SelectApFromTable(index) => {
+            if index < self_.aps.len() {
+                self_.selected_n = index;
+                self_.target_ap = self_.aps[index].clone();
+                self_.selected_str = index.to_string();
+                self_.console_output.push_str(&format!(
+                    "\n> Selected AP #{}: {} (BSSID: {}, Ch: {})",
+                    index, self_.target_ap.essid, self_.target_ap.bssid, self_.target_ap.channel
+                ));
+            }
+            Task::none()
+        }
+        Message::CrackCapturedHandshake => {
+            self_.console_output.push_str("\n> Crack captured handshake not yet implemented.");
+            Task::none()
+        }
+        Message::ToggleConsole => {
+            self_.show_console = !self_.show_console;
+            Task::none()
+        }
+        Message::SortByColumn(col) => {
+            if self_.sort_column == col {
+                self_.sort_descending = !self_.sort_descending;
+            } else {
+                self_.sort_column = col;
+                self_.sort_descending = false;
+            }
+            Task::none()
+        }
+        Message::FilterTextChanged(text) => {
+            self_.filter_text = text;
+            Task::none()
+        }
     }
 }

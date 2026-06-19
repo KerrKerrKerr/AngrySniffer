@@ -198,6 +198,10 @@ fn main() -> iced::Result {
                     remote_server_credentials: settings_at_start.remote_server_credentials.clone(),
                     local_password_list: settings_at_start.local_password_list.clone(),
                     cap_file_path: String::new(),
+                    show_console: false,
+                    sort_column: 0,
+                    sort_descending: false,
+                    filter_text: String::new(),
                 },
                 Task::none(),
             )

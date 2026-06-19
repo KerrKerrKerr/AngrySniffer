@@ -1,9 +1,5 @@
 use std::io::{BufRead, BufReader};
 use std::fs::File;
-enum state {
-    Up,
-    Down
-}
 
 //BSSID	 First time seen	 Last time seen	 channel	 Speed	 Privacy	 Cipher	 Authentication	 Power	 # beacons	 # IV	 LAN IP	 ID-length	 ESSID	 Key
 #[derive(Clone, Debug)]
@@ -95,9 +91,19 @@ impl AP {
             parts[14].to_string(),
         )
     }
-    pub fn to_string_less(&mut self) -> String{
-        
+pub fn to_string_less(&mut self) -> String{
+
         format!("{}   {}   {}   {}", self.bssid,self.power,self.channel, self.essid)
+    }
+
+    pub fn to_table_row(&self) -> (String, String, String, String, String) {
+        (
+            self.bssid.clone(),
+            format!("{} dBm", self.power),
+            format!("Ch {}", self.channel),
+            if self.essid.is_empty() { "<hidden>".to_string() } else { self.essid.clone() },
+            self.privacy.clone(),
+        )
     }
 
     pub fn to_string(&mut self) -> String{

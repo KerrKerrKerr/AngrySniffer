@@ -3,11 +3,9 @@ use std::sync::Arc;
 
 #[derive(Debug, Clone)]
 pub enum Message {
-    // --- Input changes ---
     NewMonitorInputChanged(String),
     ActuallySelected(String),
     StationMacInputChanged(String),
-    // --- Button presses ---
     RefreshInterfaces,
     RefreshMonitorInterfaces,
     ActuallySelect,
@@ -43,4 +41,8 @@ pub enum Message {
     SaveSettings,
     CrackCaptureFileLocally,
     SetCapFilePathAndCrack(String),
+    SelectApFromTable(usize),
+    ToggleConsole,
+    SortByColumn(usize),
+    FilterTextChanged(String),
 }

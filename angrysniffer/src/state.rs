@@ -30,4 +30,8 @@ pub struct ConsoleApp {
     pub local_password_list: String,
     pub local_password_list_input: String,
     pub cap_file_path: String,
+    pub show_console: bool,
+    pub sort_column: usize,
+    pub sort_descending: bool,
+    pub filter_text: String,
 }
