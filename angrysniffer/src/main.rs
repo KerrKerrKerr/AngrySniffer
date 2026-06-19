@@ -33,50 +33,50 @@ fn main() -> iced::Result {
     // --- Check for root privileges ---
     if !geteuid().is_root() {
         eprintln!("This application requires root privileges to manage network interfaces.");
-        eprintln!("Attempting to re-launch with sudo...");
+        //eprintln!("Attempting to re-launch with sudo...");
+        //apparenly it does not work on all systems, so probably supplying sudo to each command that requires root is better
+    //     match std::env::current_exe() {
+    //         Ok(exe_path) => {
+    //             let current_args: Vec<String> = std::env::args().skip(1).collect();
+    //             let mut command = std::process::Command::new("sudo");
+    //             command.arg(&exe_path);
+    //             command.args(&current_args);
 
-        match std::env::current_exe() {
-            Ok(exe_path) => {
-                let current_args: Vec<String> = std::env::args().skip(1).collect();
-                let mut command = std::process::Command::new("sudo");
-                command.arg(&exe_path);
-                command.args(&current_args);
+    //             let cmd_string = format!("sudo {} {}", exe_path.display(), current_args.join(" "));
+    //             eprintln!("Executing: {}", cmd_string);
 
-                let cmd_string = format!("sudo {} {}", exe_path.display(), current_args.join(" "));
-                eprintln!("Executing: {}", cmd_string);
-
-                match command.spawn() {
-                    Ok(mut child) => {
-                        match child.wait() {
-                            Ok(status) => {
-                                exit(status.code().unwrap_or(1));
-                            }
-                            Err(e) => {
-                                eprintln!(
-                                    "Failed to wait for the sudo'd process: {}. Please try running manually with sudo.",
-                                    e
-                                );
-                                exit(1);
-                            }
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "Failed to execute sudo command: {}. Is 'sudo' installed and in your PATH? Please try running manually with sudo.",
-                            e
-                        );
-                        exit(1);
-                    }
-                }
-            }
-            Err(e) => {
-                eprintln!(
-                    "Failed to get current executable path: {}. Cannot attempt to re-launch with sudo. Please run manually with sudo.",
-                    e
-                );
-                exit(1);
-            }
-        }
+    //             match command.spawn() {
+    //                 Ok(mut child) => {
+    //                     match child.wait() {
+    //                         Ok(status) => {
+    //                             exit(status.code().unwrap_or(1));
+    //                         }
+    //                         Err(e) => {
+    //                             eprintln!(
+    //                                 "Failed to wait for the sudo'd process: {}. Please try running manually with sudo.",
+    //                                 e
+    //                             );
+    //                             exit(1);
+    //                         }
+    //                     }
+    //                 }
+    //                 Err(e) => {
+    //                     eprintln!(
+    //                         "Failed to execute sudo command: {}. Is 'sudo' installed and in your PATH? Please try running manually with sudo.",
+    //                         e
+    //                     );
+    //                     exit(1);
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             eprintln!(
+    //                 "Failed to get current executable path: {}. Cannot attempt to re-launch with sudo. Please run manually with sudo.",
+    //                 e
+    //             );
+    //             exit(1);
+    //         }
+    //     }
     }
     let mut storage_location = String::new();
     let mut remote_server_credentials = String::new();
@@ -87,7 +87,7 @@ fn main() -> iced::Result {
         eprintln!("Configuration file {} does not exist. Creating default configuration...", config_path);
         let default_config = r#"# AngrySniffer Configuration
     [settings]
-    storage_location = "/root/.scans/"
+    storage_location = ".scans/"
     remote_server_credentials = ""
     local_password_list = ""
     "#;
@@ -137,7 +137,7 @@ fn main() -> iced::Result {
         }
     }
 
-    let scan_dir_path_str = "/root/.scans";
+    let scan_dir_path_str = "./.scans";
     let scan_dir_path = std::path::Path::new(scan_dir_path_str);
 
     if !scan_dir_path.exists() {
@@ -180,7 +180,7 @@ fn main() -> iced::Result {
                     selected_n: usize::max_value(),
                     aps: Vec::new(),
                     target_ap: AP::empty(),
-                    path_to_network: String::from("/root/.scans/"),
+                    path_to_network: format!("{}/", settings_at_start.storage_location),
                     path_to_csv_network: String::from(""),
                     console_output: String::from("Console ready."),
                     scrollable_id: Id::unique(),

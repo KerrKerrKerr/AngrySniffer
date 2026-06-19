@@ -76,8 +76,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "iw".to_string(),
+                    "sudo".to_string(),
                     vec![
+                        "iw".to_string(),
                         "dev".to_string(),
                         self_.selected_interface.clone().unwrap(),
                         "interface".to_string(),
@@ -95,8 +96,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "ip".to_string(),
+                    "sudo".to_string(),
                     vec![
+                        "ip".to_string(),
                         "link".to_string(),
                         "set".to_string(),
                         self_.down_interface_input.clone(),
@@ -111,8 +113,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "ip".to_string(),
+                    "sudo".to_string(),
                     vec![
+                        "ip".to_string(),
                         "link".to_string(),
                         "set".to_string(),
                         self_.up_interface_input.clone(),
@@ -129,8 +132,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "airmon-ng".to_string(),
-                    vec!["check".to_string(), "kill".to_string()],
+                    "sudo".to_string(),
+                    vec!["airmon-ng".to_string(), "check".to_string(), "kill".to_string()],
                 ),
                 Message::CommandCompleted,
             )
@@ -143,8 +146,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "systemctl".to_string(),
+                    "sudo".to_string(),
                     vec![
+                        "systemctl".to_string(),
                         "restart".to_string(),
                         "NetworkManager.service".to_string(),
                         "wpa_supplicant.service".to_string(),
@@ -162,7 +166,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "x-terminal-emulator".to_string(),
+                    "alacritty".to_string(),
                     vec![
                         "-e".to_string(),
                         "bash".to_string(),
@@ -181,11 +185,16 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_
                 .console_output
                 .push_str("\n> Opening file selection dialog for AP file...");
+            let storage = if !self_.storage_location.is_empty() {
+                self_.storage_location.clone()
+            } else {
+                std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+            };
             let args = vec![
                 "--file-selection".to_string(),
                 "--title=Select Target AP File".to_string(),
                 "--file-filter=*.csv *.txt".to_string(),
-                "--filename=/root/.scans/".to_string(),
+                format!("--filename={}/", storage),
             ];
             self_.is_loading = true;
             Task::perform(
@@ -239,7 +248,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "x-terminal-emulator".to_string(),
+                    "alacritty".to_string(),
                     vec![
                         "-e".to_string(),
                         "bash".to_string(),
@@ -272,7 +281,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.is_loading = true;
             Task::perform(
                 run_command(
-                    "x-terminal-emulator".to_string(),
+                    "alacritty".to_string(),
                     vec![
                         "-e".to_string(),
                         "bash".to_string(),
@@ -307,6 +316,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.console_output.push_str(&output_text);
             self_.console_output.push('\n');
             self_.is_loading = false;
+            // Refresh interface lists after any command completes
+            self_.interfaces = get_interface_names();
+            self_.monitor_interfaces = get_monitor_interfaces();
             operation::snap_to(self_.scrollable_id.clone(), operation::RelativeOffset::END)
         }
         Message::SetPathToApFile(path) => {
@@ -361,10 +373,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::OpenStorageLocationDialog => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
             let args = vec![
                 "--file-selection".to_string(),
                 "--title=Select Default Storage Location".to_string(),
-                "--filename=/root/".to_string(),
+                format!("--filename={}/", home),
             ];
             self_.is_loading = true;
             Task::perform(
@@ -391,10 +404,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::OpenRemoteServerCredentialsDialog => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
             let args = vec![
                 "--file-selection".to_string(),
                 "--title=Select Remote Server Credentials File".to_string(),
-                "--filename=/root/".to_string(),
+                format!("--filename={}/", home),
             ];
             self_.is_loading = true;
             Task::perform(
@@ -421,10 +435,11 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             Task::none()
         }
         Message::OpenLocalPasswordListDialog => {
+            let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
             let args = vec![
                 "--file-selection".to_string(),
                 "--title=Select Local Password List File".to_string(),
-                "--filename=/root/".to_string(),
+                format!("--filename={}/", home),
             ];
             self_.is_loading = true;
             Task::perform(
