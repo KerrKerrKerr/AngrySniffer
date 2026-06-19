@@ -57,6 +57,67 @@ pub fn neutrlize(strng: String) -> String {
         .collect()
 }
 
+/// Prompt the user for the sudo password via zenity (password mode, hidden input).
+/// Returns the password string (without trailing newline).
+pub fn prompt_sudo_password() -> String {
+    match std::process::Command::new("zenity")
+        .args([
+            "--password",
+            "--title",
+            "AngrySniffer — Sudo Password",
+            "--text",
+            "Enter your sudo password (not stored on disk):",
+        ])
+        .output()
+    {
+        Ok(output) if output.status.success() => {
+            String::from_utf8_lossy(&output.stdout).trim().to_string()
+        }
+        Ok(output) => {
+            // User cancelled or zenity failed
+            eprintln!(
+                "Zenity exited with status: {}. Proceeding without sudo password.",
+                output.status
+            );
+            String::new()
+        }
+        Err(e) => {
+            eprintln!("Failed to launch zenity for password prompt: {}. Proceeding without sudo password.", e);
+            String::new()
+        }
+    }
+}
+
+/// Run a command that requires sudo privileges.
+/// Pipes the password to `sudo -S` via stdin so the user is not prompted interactively.
+/// The `command` and `args` represent the full command to run under sudo
+/// (e.g., command="iw", args=["dev", "wlan0", "interface", "add", "mon0", "type", "monitor"]).
+pub async fn run_sudo_command(
+    command: String,
+    args: Vec<String>,
+    password: String,
+) -> Result<Output, Arc<std::io::Error>> {
+    use tokio::io::AsyncWriteExt;
+
+    let mut cmd = tokio::process::Command::new("sudo");
+    cmd.arg("-S").arg(command).args(args);
+    cmd
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped());
+
+    let mut child = cmd.spawn().map_err(Arc::new)?;
+
+    // Write password to stdin
+    if let Some(mut stdin) = child.stdin.take() {
+        stdin.write_all(format!("{}\n", password).as_bytes()).await.map_err(Arc::new)?;
+        stdin.flush().await.map_err(Arc::new)?;
+    }
+
+    // Wait for output
+    child.wait_with_output().await.map_err(Arc::new)
+}
+
 pub async fn run_command(command: String, args: Vec<String>) -> Result<Output, Arc<std::io::Error>> {
     tokio::process::Command::new(command)
         .args(args)

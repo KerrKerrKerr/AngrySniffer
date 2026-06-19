@@ -20,12 +20,14 @@ use state::ConsoleApp;
 use message::Message;
 use std::process::exit;
 use calllib::AP;
+use commands::prompt_sudo_password;
 
 #[derive(Clone)]
 pub struct AppFlags {
     pub storage_location: String,
     pub remote_server_credentials: String,
     pub local_password_list: String,
+    pub sudo_password: String,
 }
 
 // Main function
@@ -33,51 +35,15 @@ fn main() -> iced::Result {
     // --- Check for root privileges ---
     if !geteuid().is_root() {
         eprintln!("This application requires root privileges to manage network interfaces.");
-        //eprintln!("Attempting to re-launch with sudo...");
-        //apparenly it does not work on all systems, so probably supplying sudo to each command that requires root is better
-    //     match std::env::current_exe() {
-    //         Ok(exe_path) => {
-    //             let current_args: Vec<String> = std::env::args().skip(1).collect();
-    //             let mut command = std::process::Command::new("sudo");
-    //             command.arg(&exe_path);
-    //             command.args(&current_args);
-
-    //             let cmd_string = format!("sudo {} {}", exe_path.display(), current_args.join(" "));
-    //             eprintln!("Executing: {}", cmd_string);
-
-    //             match command.spawn() {
-    //                 Ok(mut child) => {
-    //                     match child.wait() {
-    //                         Ok(status) => {
-    //                             exit(status.code().unwrap_or(1));
-    //                         }
-    //                         Err(e) => {
-    //                             eprintln!(
-    //                                 "Failed to wait for the sudo'd process: {}. Please try running manually with sudo.",
-    //                                 e
-    //                             );
-    //                             exit(1);
-    //                         }
-    //                     }
-    //                 }
-    //                 Err(e) => {
-    //                     eprintln!(
-    //                         "Failed to execute sudo command: {}. Is 'sudo' installed and in your PATH? Please try running manually with sudo.",
-    //                         e
-    //                     );
-    //                     exit(1);
-    //                 }
-    //             }
-    //         }
-    //         Err(e) => {
-    //             eprintln!(
-    //                 "Failed to get current executable path: {}. Cannot attempt to re-launch with sudo. Please run manually with sudo.",
-    //                 e
-    //             );
-    //             exit(1);
-    //         }
-    //     }
+        eprintln!("You will be prompted for your sudo password.");
     }
+
+    // --- Prompt for sudo password at startup (kept in memory only) ---
+    let sudo_password = prompt_sudo_password();
+    if sudo_password.is_empty() && !geteuid().is_root() {
+        eprintln!("Warning: No sudo password entered. Some features may not work without root privileges.");
+    }
+
     let mut storage_location = String::new();
     let mut remote_server_credentials = String::new();
     let mut local_password_list = String::new();
@@ -165,6 +131,7 @@ fn main() -> iced::Result {
         storage_location: storage_location.clone(),
         remote_server_credentials: remote_server_credentials.clone(),
         local_password_list: local_password_list.clone(),
+        sudo_password: sudo_password.clone(),
     };
 
     iced::application(
@@ -202,6 +169,7 @@ fn main() -> iced::Result {
                     sort_column: 0,
                     sort_descending: false,
                     filter_text: String::new(),
+                    sudo_password: settings_at_start.sudo_password.clone(),
                 },
                 Task::none(),
             )

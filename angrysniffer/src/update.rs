@@ -1,5 +1,5 @@
 use crate::calllib::parse_network_list;
-use crate::commands::{get_interface_names, get_monitor_interfaces, run_command};
+use crate::commands::{get_interface_names, get_monitor_interfaces, run_command, run_sudo_command};
 use crate::message::Message;
 use crate::state::ConsoleApp;
 use crate::update::commands::neutrlize;
@@ -75,10 +75,9 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.console_output.push_str("\n> Adding monitor...");
             self_.is_loading = true;
             Task::perform(
-                run_command(
-                    "sudo".to_string(),
+                run_sudo_command(
+                    "iw".to_string(),
                     vec![
-                        "iw".to_string(),
                         "dev".to_string(),
                         self_.selected_interface.clone().unwrap(),
                         "interface".to_string(),
@@ -87,6 +86,7 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                         "type".to_string(),
                         "monitor".to_string(),
                     ],
+                    self_.sudo_password.clone(),
                 ),
                 Message::CommandCompleted,
             )
@@ -95,15 +95,15 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.console_output.push_str("\n> Downing interface...");
             self_.is_loading = true;
             Task::perform(
-                run_command(
-                    "sudo".to_string(),
+                run_sudo_command(
+                    "ip".to_string(),
                     vec![
-                        "ip".to_string(),
                         "link".to_string(),
                         "set".to_string(),
                         self_.down_interface_input.clone(),
                         "down".to_string(),
                     ],
+                    self_.sudo_password.clone(),
                 ),
                 Message::CommandCompleted,
             )
@@ -112,15 +112,15 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
             self_.console_output.push_str("\n> Upping interface...");
             self_.is_loading = true;
             Task::perform(
-                run_command(
-                    "sudo".to_string(),
+                run_sudo_command(
+                    "ip".to_string(),
                     vec![
-                        "ip".to_string(),
                         "link".to_string(),
                         "set".to_string(),
                         self_.up_interface_input.clone(),
                         "up".to_string(),
                     ],
+                    self_.sudo_password.clone(),
                 ),
                 Message::CommandCompleted,
             )
@@ -131,9 +131,10 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                 .push_str("\n> KIlling netwok services...");
             self_.is_loading = true;
             Task::perform(
-                run_command(
-                    "sudo".to_string(),
-                    vec!["airmon-ng".to_string(), "check".to_string(), "kill".to_string()],
+                run_sudo_command(
+                    "airmon-ng".to_string(),
+                    vec!["check".to_string(), "kill".to_string()],
+                    self_.sudo_password.clone(),
                 ),
                 Message::CommandCompleted,
             )
@@ -145,23 +146,25 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                 .push_str("\n> Restarting network services...");
             self_.is_loading = true;
             Task::perform(
-                run_command(
-                    "sudo".to_string(),
+                run_sudo_command(
+                    "systemctl".to_string(),
                     vec![
-                        "systemctl".to_string(),
                         "restart".to_string(),
                         "NetworkManager.service".to_string(),
                         "wpa_supplicant.service".to_string(),
                     ],
+                    self_.sudo_password.clone(),
                 ),
                 Message::CommandCompleted,
             )
         }
         Message::StartCollectingNetworkList => {
+            let monitor = self_.selected_monitor.clone().unwrap_or_default();
+            let path = self_.path_to_network.clone();
+            let password = self_.sudo_password.clone();
             self_.console_output.push_str(&format!(
                 "\n> sudo airodump-ng {} --output-format csv -w {}",
-                self_.selected_monitor.clone().unwrap_or_default(),
-                self_.path_to_network
+                monitor, path
             ));
             self_.is_loading = true;
             Task::perform(
@@ -172,9 +175,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                         "bash".to_string(),
                         "-c".to_string(),
                         format!(
-                            "sudo airodump-ng {} --output-format csv -w {}",
-                            self_.selected_monitor.clone().unwrap_or_default(),
-                            self_.path_to_network
+                            "echo '{}' | sudo -S airodump-ng {} --output-format csv -w {}",
+                            password, monitor, path
                         ),
                     ],
                 ),
@@ -239,11 +241,13 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                 self_.console_output.push_str("\n> Not enough args");
                 return Task::none();
             }
+            let bssid = self_.target_ap.bssid.clone();
+            let station = self_.station_mac.clone();
+            let monitor = self_.selected_monitor.clone().unwrap_or_default();
+            let password = self_.sudo_password.clone();
             self_.console_output.push_str(&format!(
                 "sudo aireplay-ng --deauth 10 -a {} -c {} {}",
-                self_.target_ap.bssid.clone(),
-                self_.station_mac.clone(),
-                self_.selected_monitor.clone().unwrap_or_default()
+                bssid, station, monitor
             ));
             self_.is_loading = true;
             Task::perform(
@@ -254,10 +258,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                         "bash".to_string(),
                         "-c".to_string(),
                         format!(
-                            "sudo aireplay-ng --deauth 10 -a {} -c {} {}",
-                            self_.target_ap.bssid.clone(),
-                            self_.station_mac.clone(),
-                            self_.selected_monitor.clone().unwrap_or_default()
+                            "echo '{}' | sudo -S aireplay-ng --deauth 10 -a {} -c {} {}",
+                            password, bssid, station, monitor
                         ),
                     ],
                 ),
@@ -271,12 +273,14 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                     .push_str("\n> No target AP selected. Please select an AP first.");
                 return Task::none();
             }
+            let bssid = self_.target_ap.bssid.clone();
+            let channel = self_.target_ap.channel.clone();
+            let monitor = self_.selected_monitor.clone().unwrap_or_default();
+            let output_name = self_.path_to_network.clone() + &neutrlize(self_.target_ap.essid.clone());
+            let password = self_.sudo_password.clone();
             self_.console_output.push_str(&format!(
-                "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w {}",
-                self_.target_ap.bssid.clone(),
-                self_.target_ap.channel.clone(),
-                self_.selected_monitor.clone().unwrap_or_default(),
-                self_.path_to_network.clone() + &self_.target_ap.essid.clone()
+                "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w \"{}\"",
+                bssid, channel, monitor, output_name
             ));
             self_.is_loading = true;
             Task::perform(
@@ -287,12 +291,8 @@ pub fn update(self_: &mut ConsoleApp, message: Message) -> Task<Message> {
                         "bash".to_string(),
                         "-c".to_string(),
                         format!(
-                            "sudo airodump-ng --bssid {} -c {} {} --output-format cap -w \"{}\"",
-                            self_.target_ap.bssid.clone(),
-                            self_.target_ap.channel.clone(),
-                            self_.selected_monitor.clone().unwrap_or_default(),
-                            self_.path_to_network.clone()
-                                + &neutrlize(self_.target_ap.essid.clone())
+                            "echo '{}' | sudo -S airodump-ng --bssid {} -c {} {} --output-format cap -w \"{}\"",
+                            password, bssid, channel, monitor, output_name
                         ),
                     ],
                 ),

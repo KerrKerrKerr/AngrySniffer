@@ -34,4 +34,6 @@ pub struct ConsoleApp {
     pub sort_column: usize,
     pub sort_descending: bool,
     pub filter_text: String,
+    /// Sudo password entered at startup (kept in memory only, never written to disk)
+    pub sudo_password: String,
 }
