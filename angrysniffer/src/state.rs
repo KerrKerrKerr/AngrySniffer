@@ -1,7 +1,36 @@
 use super::calllib::AP;
 use iced::widget::Id;
 
-// Define the application state
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum JobKind {
+    Scan,
+    Capture,
+    Deauth,
+    Crack,
+}
+
+impl JobKind {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            JobKind::Scan => "Scan",
+            JobKind::Capture => "Capture",
+            JobKind::Deauth => "Deauth",
+            JobKind::Crack => "Crack",
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct Job {
+    pub id: u64,
+    pub kind: JobKind,
+    pub label: String,
+    pub summary: String,
+    pub pid: u32,
+    pub pgid: i32,
+    pub running: bool,
+}
+
 pub struct ConsoleApp {
     pub interfaces: Vec<String>,
     pub monitor_interfaces: Vec<String>,
@@ -22,18 +51,22 @@ pub struct ConsoleApp {
     pub station_mac: String,
     pub network_services_killed: bool,
     pub show_settings: bool,
-    pub settings_text: String,
     pub storage_location: String,
     pub storage_location_input: String,
     pub remote_server_credentials: String,
     pub remote_server_credentials_input: String,
     pub local_password_list: String,
     pub local_password_list_input: String,
+    pub terminal: String,
+    pub terminal_input: String,
     pub cap_file_path: String,
     pub show_console: bool,
     pub sort_column: usize,
     pub sort_descending: bool,
     pub filter_text: String,
-    /// Sudo password entered at startup (kept in memory only, never written to disk)
+    /// Sudo password entered at startup (memory only, never written to disk)
     pub sudo_password: String,
+    pub jobs: Vec<Job>,
+    pub selected_job_id: Option<u64>,
+    pub next_job_id: u64,
 }
