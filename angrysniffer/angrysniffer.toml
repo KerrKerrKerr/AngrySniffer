@@ -1,5 +1,6 @@
 # AngrySniffer Configuration
 [settings]
-storage_location = "/home/kerr/.scans/"
+storage_location = "/home/ker/.scans/"
 remote_server_credentials = ""
-local_password_list = ""
+local_password_list = "/home/ker/Downloads/10_million_password_list_top_1000000.txt"
+terminal = ""

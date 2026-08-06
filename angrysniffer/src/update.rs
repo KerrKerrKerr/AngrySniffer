@@ -130,12 +130,17 @@ fn shell_quote(s: &str) -> String {
     format!("'{}'", s.replace('\'', "'\\''"))
 }
 
-/// Prefix a shell command with sudo -S when not already root.
+/// Prefix a shell command with sudo when not already root.
+/// Empty password: prefer non-interactive (`-n`), else interactive `sudo` in the terminal
+/// (NOPASSWD, cached ticket, or user types password / blank Enter).
 fn elevate_shell(app: &ConsoleApp, inner: &str) -> String {
     if geteuid().is_root() {
-        inner.to_string()
-    } else if app.sudo_password.is_empty() {
-        format!("sudo {inner}")
+        return inner.to_string();
+    }
+    if app.sudo_password.is_empty() {
+        format!(
+            "if sudo -n true >/dev/null 2>&1; then sudo -n {inner}; else sudo {inner}; fi"
+        )
     } else {
         format!(
             "echo {} | sudo -S {inner}",

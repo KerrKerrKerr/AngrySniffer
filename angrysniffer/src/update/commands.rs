@@ -87,8 +87,37 @@ pub fn find_capture_for_prefix(prefix_path: &str) -> Option<String> {
     matches.into_iter().next().map(|(_, p)| p)
 }
 
+/// True if `sudo` can run without an interactive password (NOPASSWD or root).
+pub fn sudo_is_passwordless() -> bool {
+    use nix::unistd::geteuid;
+    if geteuid().is_root() {
+        return true;
+    }
+    std::process::Command::new("sudo")
+        .args(["-n", "true"])
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .status()
+        .map(|s| s.success())
+        .unwrap_or(false)
+}
+
+/// Prompt via zenity only when a password is actually required.
+pub fn obtain_sudo_password() -> String {
+    use nix::unistd::geteuid;
+    if geteuid().is_root() {
+        eprintln!("Running as root — sudo password not needed.");
+        return String::new();
+    }
+    if sudo_is_passwordless() {
+        eprintln!("Passwordless sudo detected — skipping password prompt.");
+        return String::new();
+    }
+    prompt_sudo_password()
+}
+
 /// Prompt the user for the sudo password via zenity (password mode, hidden input).
-/// Returns the password string (without trailing newline).
 pub fn prompt_sudo_password() -> String {
     match std::process::Command::new("zenity")
         .args([
@@ -104,7 +133,6 @@ pub fn prompt_sudo_password() -> String {
             String::from_utf8_lossy(&output.stdout).trim().to_string()
         }
         Ok(output) => {
-            // User cancelled or zenity failed
             eprintln!(
                 "Zenity exited with status: {}. Proceeding without sudo password.",
                 output.status
@@ -112,16 +140,18 @@ pub fn prompt_sudo_password() -> String {
             String::new()
         }
         Err(e) => {
-            eprintln!("Failed to launch zenity for password prompt: {}. Proceeding without sudo password.", e);
+            eprintln!(
+                "Failed to launch zenity for password prompt: {e}. Proceeding without sudo password."
+            );
             String::new()
         }
     }
 }
 
-/// Run a command that requires sudo privileges.
-/// Pipes the password to `sudo -S` via stdin so the user is not prompted interactively.
-/// The `command` and `args` represent the full command to run under sudo
-/// (e.g., command="iw", args=["dev", "wlan0", "interface", "add", "mon0", "type", "monitor"]).
+/// Run a command under sudo.
+/// - Non-empty password → `sudo -S` with that password
+/// - Empty password → try `sudo -n` (NOPASSWD), then `sudo -S` with a blank line
+///   (systems that accept an empty password)
 pub async fn run_sudo_command(
     command: String,
     args: Vec<String>,
@@ -129,23 +159,93 @@ pub async fn run_sudo_command(
 ) -> Result<Output, Arc<std::io::Error>> {
     use tokio::io::AsyncWriteExt;
 
+    if password.is_empty() {
+        let noninteractive = tokio::process::Command::new("sudo")
+            .arg("-n")
+            .arg(&command)
+            .args(&args)
+            .output()
+            .await
+            .map_err(Arc::new)?;
+        if noninteractive.status.success() {
+            return Ok(noninteractive);
+        }
+
+        // Blank password via stdin (empty-password sudo configs)
+        let mut cmd = tokio::process::Command::new("sudo");
+        cmd.arg("-S").arg(&command).args(&args);
+        cmd.stdin(std::process::Stdio::piped())
+            .stdout(std::process::Stdio::piped())
+            .stderr(std::process::Stdio::piped());
+        let mut child = cmd.spawn().map_err(Arc::new)?;
+        if let Some(mut stdin) = child.stdin.take() {
+            stdin.write_all(b"\n").await.map_err(Arc::new)?;
+            stdin.flush().await.map_err(Arc::new)?;
+        }
+        return child.wait_with_output().await.map_err(Arc::new);
+    }
+
     let mut cmd = tokio::process::Command::new("sudo");
-    cmd.arg("-S").arg(command).args(args);
-    cmd
-        .stdin(std::process::Stdio::piped())
+    cmd.arg("-S").arg(&command).args(&args);
+    cmd.stdin(std::process::Stdio::piped())
         .stdout(std::process::Stdio::piped())
         .stderr(std::process::Stdio::piped());
 
     let mut child = cmd.spawn().map_err(Arc::new)?;
 
-    // Write password to stdin
     if let Some(mut stdin) = child.stdin.take() {
-        stdin.write_all(format!("{}\n", password).as_bytes()).await.map_err(Arc::new)?;
+        stdin
+            .write_all(format!("{password}\n").as_bytes())
+            .await
+            .map_err(Arc::new)?;
         stdin.flush().await.map_err(Arc::new)?;
     }
 
-    // Wait for output
     child.wait_with_output().await.map_err(Arc::new)
+}
+
+/// Ensure a writable storage directory. Tries preferred path, then local fallbacks.
+pub fn ensure_storage_dir(preferred: &str) -> Result<String, String> {
+    let mut candidates: Vec<String> = Vec::new();
+    let pref = preferred.trim();
+    if !pref.is_empty() {
+        candidates.push(ensure_trailing_slash(pref));
+    }
+    candidates.push(String::from(".scans/"));
+    if let Ok(cwd) = std::env::current_dir() {
+        candidates.push(ensure_trailing_slash(
+            &cwd.join(".scans").to_string_lossy(),
+        ));
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        candidates.push(ensure_trailing_slash(&format!(
+            "{home}/.local/share/angrysniffer/scans"
+        )));
+    }
+
+    let mut last_err = String::from("no candidates");
+    for path in &candidates {
+        match std::fs::create_dir_all(path) {
+            Ok(()) => {
+                // Verify writable
+                let probe = Path::new(path).join(".angrysniffer_write_test");
+                match std::fs::write(&probe, b"ok") {
+                    Ok(()) => {
+                        let _ = std::fs::remove_file(&probe);
+                        if path != &candidates[0] && !pref.is_empty() {
+                            eprintln!(
+                                "Storage '{pref}' not usable; using '{path}' instead."
+                            );
+                        }
+                        return Ok(path.clone());
+                    }
+                    Err(e) => last_err = format!("{path}: {e}"),
+                }
+            }
+            Err(e) => last_err = format!("{path}: {e}"),
+        }
+    }
+    Err(format!("Could not create a writable storage directory ({last_err})"))
 }
 
 pub async fn run_command(command: String, args: Vec<String>) -> Result<Output, Arc<std::io::Error>> {

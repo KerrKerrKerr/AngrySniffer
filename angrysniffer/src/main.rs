@@ -13,7 +13,7 @@ use message::Message;
 use nix::unistd::geteuid;
 use state::ConsoleApp;
 use std::process::exit;
-use update::commands::prompt_sudo_password;
+use update::commands::{ensure_storage_dir, obtain_sudo_password};
 
 /// JetBrains Mono font referenced by name (must be installed on the system)
 const JETBRAINS_MONO: Font = Font::with_name("JetBrains Mono");
@@ -28,14 +28,11 @@ pub struct AppFlags {
 }
 
 fn main() -> iced::Result {
-    if !geteuid().is_root() {
-        eprintln!("Some features need root. You will be prompted for your sudo password.");
-    }
-
-    let sudo_password = prompt_sudo_password();
-    if sudo_password.is_empty() && !geteuid().is_root() {
+    let sudo_password = obtain_sudo_password();
+    if sudo_password.is_empty() && !geteuid().is_root() && !update::commands::sudo_is_passwordless()
+    {
         eprintln!(
-            "Warning: No sudo password entered. Privileged features may fail."
+            "Warning: No sudo credentials available. Privileged features may fail."
         );
     }
 
@@ -102,17 +99,14 @@ terminal = ""
     if storage_location.is_empty() {
         storage_location = String::from(".scans/");
     }
-    if !storage_location.ends_with('/') {
-        storage_location.push('/');
-    }
 
-    if let Err(e) = std::fs::create_dir_all(&storage_location) {
-        eprintln!(
-            "Failed to create storage directory {}: {e}. Create it manually.",
-            storage_location
-        );
-        exit(1);
-    }
+    storage_location = match ensure_storage_dir(&storage_location) {
+        Ok(path) => path,
+        Err(e) => {
+            eprintln!("{e}");
+            exit(1);
+        }
+    };
 
     let settings_at_start = AppFlags {
         storage_location: storage_location.clone(),
